@@ -8,12 +8,12 @@ from airflow.providers.mysql.sensors.sql import SqlSensor
 from airflow.utils.trigger_rule import TriggerRule
 
 # Налаштування підключення та схеми
-CONNECTION_ID = "goit_mysql_db"
-SCHEMA_NAME = "hw7_airflow"
+CONNECTION_ID = "goit_mysql_db_dmzhuk"
+SCHEMA_NAME = "neo_data"
 
 default_args = {
     "owner": "airflow",
-    "start_date": datetime(2026, 4, 4),
+    "start_date": datetime(2024, 8, 4, 0, 0),
 }
 
 
@@ -37,14 +37,14 @@ with DAG(
     default_args=default_args,
     schedule_interval=None,
     catchup=False,
-    tags=["homework", "mysql"],
+    tags=["hw7", "mysql"],
 ) as dag:
     # 1. Створення таблиці
     create_table = MySqlOperator(
         task_id="create_table",
         mysql_conn_id=CONNECTION_ID,
         sql=f"""
-        CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.hw7_dag_results (
+        CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.dmzhuk_medal_results (
             id INT AUTO_INCREMENT PRIMARY KEY,
             medal_type VARCHAR(50),
             count INT,
@@ -53,7 +53,7 @@ with DAG(
         """,
     )
 
-    # 2. Логічне завдання вибору
+    # 2. Завдання вибору - випадково обирає одне із трьох значень
     pick_medal = PythonOperator(
         task_id="pick_medal", python_callable=lambda: print("Picking a medal type...")
     )
@@ -63,13 +63,13 @@ with DAG(
         task_id="pick_medal_task", python_callable=_pick_medal
     )
 
-    # 4. Завдання обчислення
+    # 4. Обчислення
     def create_calc_task(medal):
         return MySqlOperator(
             task_id=f"calc_{medal}",
             mysql_conn_id=CONNECTION_ID,
             sql=f"""
-            INSERT INTO {SCHEMA_NAME}.hw7_dag_results (medal_type, count, created_at)
+            INSERT INTO {SCHEMA_NAME}.dmzhuk_medal_results (medal_type, count, created_at)
             SELECT '{medal}', COUNT(*), NOW()
             FROM olympic_dataset.athlete_event_results
             WHERE medal = '{medal}';
@@ -92,7 +92,7 @@ with DAG(
         task_id="check_for_correctness",
         conn_id=CONNECTION_ID,
         sql=f"""
-        SELECT COUNT(*) FROM {SCHEMA_NAME}.hw7_dag_results
+        SELECT COUNT(*) FROM {SCHEMA_NAME}.dmzhuk_medal_results
         WHERE created_at >= NOW() - INTERVAL 30 SECOND;
         """,
         mode="poke",
