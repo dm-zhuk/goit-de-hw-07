@@ -5,4 +5,5 @@ metastore_db/
 __pycache__/
 .vscode/
 .DS_Store
+.venv
 del_pycache.py
