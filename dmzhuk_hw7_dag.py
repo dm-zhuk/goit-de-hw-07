@@ -1,19 +1,19 @@
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from airflow import DAG
-from airflow.providers.mysql.operators.mysql import MySqlOperator
-from airflow.operators.python import PythonOperator, BranchPythonOperator
-from airflow.providers.mysql.sensors.sql import SqlSensor
-from airflow.utils.trigger_rule import TriggerRule
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator as MySqlOperator
+from airflow.providers.common.sql.sensors.sql import SqlSensor
+from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
+from airflow.task.trigger_rule import TriggerRule as tr
 
 # Налаштування підключення та схеми
 CONNECTION_ID = "goit_mysql_db_dmzhuk"
-SCHEMA_NAME = "neo_data"
+SCHEMA_NAME = "olympic_dataset"
 
 default_args = {
     "owner": "airflow",
-    "start_date": datetime(2024, 8, 4, 0, 0),
+    "start_date": datetime(2024, 8, 4, tzinfo=timezone.utc),
 }
 
 
@@ -35,14 +35,14 @@ def _generate_delay():
 with DAG(
     dag_id="medal_processing_workflow",
     default_args=default_args,
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
     tags=["hw7", "mysql"],
 ) as dag:
     # 1. Створення таблиці
     create_table = MySqlOperator(
         task_id="create_table",
-        mysql_conn_id=CONNECTION_ID,
+        conn_id=CONNECTION_ID,
         sql=f"""
         CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.dmzhuk_medal_results (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,7 +67,7 @@ with DAG(
     def create_calc_task(medal):
         return MySqlOperator(
             task_id=f"calc_{medal}",
-            mysql_conn_id=CONNECTION_ID,
+            conn_id=CONNECTION_ID,
             sql=f"""
             INSERT INTO {SCHEMA_NAME}.dmzhuk_medal_results (medal_type, count, created_at)
             SELECT '{medal}', COUNT(*), NOW()
@@ -84,7 +84,7 @@ with DAG(
     generate_delay = PythonOperator(
         task_id="generate_delay",
         python_callable=_generate_delay,
-        trigger_rule=TriggerRule.ONE_SUCCESS,
+        trigger_rule=tr.ONE_SUCCESS,
     )
 
     # 6. Сенсор для перевірки результатів
